@@ -11,7 +11,7 @@ const int GAME_HEIGHT = 30;
 const int SNAKE_INITIAL_LENGTH = 3;
 const int COLOR_SNAKE = 15;  // Bright White
 const int COLOR_APPLE = 12;  // Red
-const char CHAR_SNAKE_HEAD = '*';
+const char CHAR_SNAKE = '*';
 const char CHAR_APPLE = 'o';
 
 struct Position {
@@ -130,7 +130,7 @@ private:
             Console::displayCharacter(snakeBody.back(), ' ', COLOR_SNAKE);  // Clear last segment
             snakeBody.pop_back();
         }
-        Console::displayCharacter(snakeBody.front(), CHAR_SNAKE_HEAD, COLOR_SNAKE);  // Redraw snake
+        Console::displayCharacter(snakeBody.front(), CHAR_SNAKE, COLOR_SNAKE);  // Redraw snake
     }
 
 public:
@@ -144,7 +144,7 @@ public:
         apple = generateNewApple();
         Console::displayCharacter(apple, CHAR_APPLE, COLOR_APPLE);
         for (const auto& pos : snakeBody) {
-            Console::displayCharacter(pos, CHAR_SNAKE_HEAD, COLOR_SNAKE);
+            Console::displayCharacter(pos, CHAR_SNAKE, COLOR_SNAKE);
         }
     }
 
