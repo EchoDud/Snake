@@ -6,13 +6,13 @@
 
 using namespace std;
 
-const int GAME_WIDTH = 50;
-const int GAME_HEIGHT = 30;
-const int SNAKE_INITIAL_LENGTH = 3;
-const int COLOR_SNAKE = 15;  // Bright White
-const int COLOR_APPLE = 12;  // Red
-const char CHAR_SNAKE = '*';
-const char CHAR_APPLE = 'o';
+constexpr int GAME_WIDTH = 50;
+constexpr int GAME_HEIGHT = 30;
+constexpr int SNAKE_INITIAL_LENGTH = 3;
+constexpr int COLOR_SNAKE = 15;  // Bright White
+constexpr int COLOR_APPLE = 12;  // Red
+constexpr char CHAR_SNAKE = '*';
+constexpr char CHAR_APPLE = 'o';
 
 struct Position {
     int x, y;
@@ -24,7 +24,7 @@ struct Position {
 class Console {
 public:
     static void initialize() {
-        srand(time(0));
+        srand(static_cast<unsigned>(time(0)));
         system("mode con cols=51 lines=31");
         MoveWindow(GetConsoleWindow(), 50, 50, 2000, 2000, true);
         HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -33,13 +33,9 @@ public:
     }
 
     static void drawBoundaries() {
-        for (int row = 0; row < GAME_HEIGHT; row++) {
-            for (int col = 0; col < GAME_WIDTH; col++) {
-                char boundaryChar = ' ';
-                if (col == 0 || col == GAME_WIDTH - 1) boundaryChar = '|';
-                if (row == 0 || row == GAME_HEIGHT - 1) boundaryChar = '-';
-                if ((col == 0 || col == GAME_WIDTH - 1) && (row == 0 || row == GAME_HEIGHT - 1))
-                    boundaryChar = '+';
+        for (int row = 0; row < GAME_HEIGHT; ++row) {
+            for (int col = 0; col < GAME_WIDTH; ++col) {
+                char boundaryChar = getBoundaryChar(row, col);
                 cout << boundaryChar;
             }
             cout << endl;
@@ -61,6 +57,17 @@ public:
     static void pause() {
         system("pause");
     }
+
+private:
+    static char getBoundaryChar(int row, int col) {
+        if ((col == 0 || col == GAME_WIDTH - 1) && (row == 0 || row == GAME_HEIGHT - 1))
+            return '+';
+        if (col == 0 || col == GAME_WIDTH - 1)
+            return '|';
+        if (row == 0 || row == GAME_HEIGHT - 1)
+            return '-';
+        return ' ';
+    }
 };
 
 class Game {
@@ -73,74 +80,80 @@ private:
 
     Position generateNewApple() {
         Position newApple;
-        bool isColliding;
         do {
-            isColliding = false;
-            newApple.x = rand() % (GAME_WIDTH - 2) + 1;
-            newApple.y = rand() % (GAME_HEIGHT - 2) + 1;
-            for (const auto& segment : snakeBody) {
-                if (segment == newApple) {
-                    isColliding = true;
-                    break;
-                }
-            }
-        } while (isColliding);
+            newApple = { rand() % (GAME_WIDTH - 2) + 1, rand() % (GAME_HEIGHT - 2) + 1 };
+        } while (isCollidingWithSnake(newApple));
         return newApple;
+    }
+
+    bool isCollidingWithSnake(const Position& pos) const {
+        for (const auto& segment : snakeBody) {
+            if (segment == pos) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void processInput() {
         if (_kbhit()) {
             int keyPress = _getch();
-            switch (keyPress) {
-            case 224:  // Handle arrow keys
-                switch (_getch()) {
-                case 72: if (deltaY == 0) { deltaY = -1; deltaX = 0; } break; // Up
-                case 80: if (deltaY == 0) { deltaY = 1; deltaX = 0; } break;  // Down
-                case 75: if (deltaX == 0) { deltaY = 0; deltaX = -1; } break; // Left
-                case 77: if (deltaX == 0) { deltaY = 0; deltaX = 1; } break;  // Right
-                }
-                break;
-            case 27:  // ESC 
-                isGameRunning = false;
-                break;
+            handleKeyPress(keyPress);
+        }
+    }
+
+    void handleKeyPress(int keyPress) {
+        if (keyPress == 224) {
+            int arrowKey = _getch();
+            switch (arrowKey) {
+            case 72: setDirection(0, -1); break;  // Up
+            case 80: setDirection(0, 1); break;   // Down
+            case 75: setDirection(-1, 0); break;  // Left
+            case 77: setDirection(1, 0); break;   // Right
             }
+        }
+        else if (keyPress == 27) {  // ESC
+            isGameRunning = false;
+        }
+    }
+
+    void setDirection(int dx, int dy) {
+        if ((deltaX == 0 && dx != 0) || (deltaY == 0 && dy != 0)) {
+            deltaX = dx;
+            deltaY = dy;
         }
     }
 
     void updateGame() {
         Position nextHeadPosition = { snakeBody.front().x + deltaX, snakeBody.front().y + deltaY };
-        if (nextHeadPosition.x == 0 || nextHeadPosition.x == GAME_WIDTH - 1 || nextHeadPosition.y == 0 || nextHeadPosition.y == GAME_HEIGHT - 1) {
-            isGameRunning = false;  // Snake hits the boundary
+        if (isCollision(nextHeadPosition)) {
+            isGameRunning = false;
             return;
         }
 
-        for (const auto& segment : snakeBody) {
-            if (nextHeadPosition == segment) {
-                isGameRunning = false;  // Collision with itself
-                return;
-            }
-        }
-
         snakeBody.insert(snakeBody.begin(), nextHeadPosition);
-        if (nextHeadPosition == apple) {  // Eat the apple
+        if (nextHeadPosition == apple) {
             apple = generateNewApple();
             Console::displayCharacter(apple, CHAR_APPLE, COLOR_APPLE);
         }
         else {
-            Console::displayCharacter(snakeBody.back(), ' ', COLOR_SNAKE);  // Clear last segment
+            Console::displayCharacter(snakeBody.back(), ' ', COLOR_SNAKE);
             snakeBody.pop_back();
         }
-        Console::displayCharacter(snakeBody.front(), CHAR_SNAKE, COLOR_SNAKE);  // Redraw snake
+        Console::displayCharacter(snakeBody.front(), CHAR_SNAKE, COLOR_SNAKE);
+    }
+
+    bool isCollision(const Position& pos) const {
+        if (pos.x == 0 || pos.x == GAME_WIDTH - 1 || pos.y == 0 || pos.y == GAME_HEIGHT - 1)
+            return true;
+        return isCollidingWithSnake(pos);
     }
 
 public:
     Game() {
         Console::initialize();
         Console::drawBoundaries();
-        snakeBody = { {GAME_WIDTH / 2, GAME_HEIGHT / 2} };
-        for (int i = 1; i < SNAKE_INITIAL_LENGTH; i++) {
-            snakeBody.push_back({ GAME_WIDTH / 2 - i, GAME_HEIGHT / 2 });
-        }
+        initializeSnake();
         apple = generateNewApple();
         Console::displayCharacter(apple, CHAR_APPLE, COLOR_APPLE);
         for (const auto& pos : snakeBody) {
@@ -154,6 +167,18 @@ public:
             processInput();
             updateGame();
         }
+        endGame();
+    }
+
+    void initializeSnake() {
+        int startX = GAME_WIDTH / 2;
+        int startY = GAME_HEIGHT / 2;
+        for (int i = 0; i < SNAKE_INITIAL_LENGTH; ++i) {
+            snakeBody.push_back({ startX - i, startY });
+        }
+    }
+
+    void endGame() {
         Console::clearScreen();
         cout << "GAME OVER\n";
         Console::pause();
